@@ -43,6 +43,14 @@ namespace eXUI
 		float m_prevTime;
 		int m_standard_font;
 		PadState m_pad;
+
+		void createFramebufferResources();
+		void recordStaticCommands();
+		void destroyFramebufferResources();
+		void render(u64 ns, int blowup);
+
+	protected:
+		bool onFrame(u64 ns);
 	};
 } // namespace eXUI
 #endif /* APPLICATION_HPP */
