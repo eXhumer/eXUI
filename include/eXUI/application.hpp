@@ -40,14 +40,14 @@ namespace eXUI
 		std::optional<nvg::DkRenderer> m_renderer;
 		NVGcontext* m_vg;
 
-		float m_prevTime;
+		// float m_prevTime;
 		int m_standard_font;
 		PadState m_pad;
 
 		void createFramebufferResources();
 		void recordStaticCommands();
 		void destroyFramebufferResources();
-		void render(u64 ns, int blowup);
+		void render(u64 ns);
 
 	protected:
 		bool onFrame(u64 ns);
