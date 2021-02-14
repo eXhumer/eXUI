@@ -261,4 +261,4 @@ namespace eXUI
             .shadowOffset  = 10.0f
         };
     }
-} // namespace brls
+} // namespace eXUI

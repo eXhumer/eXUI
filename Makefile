@@ -5,6 +5,7 @@ include $(DEVKITPRO)/libnx/switch_rules
 endif
 
 LIB_NANOVG	:=	libs/nanovg
+LIB_LRC		:=	libs/libretro-common
 
 LIB			:=	lib
 TARGET		:=	libeXUI
@@ -22,11 +23,15 @@ CXXFLAGS	:= -std=gnu++2a -fno-exceptions -fno-rtti
 
 ASFLAGS	:=	$(ARCH)
 
-LIBDIRS	:= $(PORTLIBS) $(LIBNX) $(LIB_NANOVG)
+LIBDIRS	:= $(PORTLIBS) $(LIBNX) $(LIB_NANOVG) $(LIB_LRC)
 
 OUTPUT	:=	$(LIB)/$(TARGET)
 LIB_OUTPUT	:=	$(OUTPUT).a
 
+CFILES		:=	$(foreach SOURCE,$(SOURCES),$(wildcard $(SOURCE)/*.c))
+CFILES		+=	$(LIB_LRC)/compat/compat_strl.c \
+				$(LIB_LRC)/encodings/encoding_utf.c \
+				$(LIB_LRC)/encodings/features_cpu.c
 CPPFILES	:=	$(foreach SOURCE,$(SOURCES),$(wildcard $(SOURCE)/*.cpp))
 
 ifeq ($(strip $(CPPFILES)),)
@@ -35,7 +40,7 @@ else
 	LD	:=	$(CXX)
 endif
 
-OFILES 	:=	$(CPPFILES:.cpp=.o)
+OFILES 	:=	$(CFILES:.c=.o) $(CPPFILES:.cpp=.o)
 DEPENDS	:=	$(OFILES:.o=.d)
 
 INCFLAGS	:=	$(foreach INCLUDE,$(INCLUDES),-I$(INCLUDE)) \
@@ -48,6 +53,9 @@ $(LIB_OUTPUT): $(LIB) $(OFILES)
 
 $(LIB):
 	[ -d $@ ] || mkdir -p $@
+
+%.o:	%.cpp
+	$(CC) -MMD -MP -MF $(@:%.o=%.d) $(CFLAGS) $(INCFLAGS) -c $< -o $@
 
 %.o:	%.cpp
 	$(CXX) -MMD -MP -MF $(@:%.o=%.d) $(CFLAGS) $(INCFLAGS) $(CXXFLAGS) -c $< -o $@
