@@ -23,8 +23,6 @@ CFLAGS	:=	-Wall -O3 -ffunction-sections \
 
 CXXFLAGS	:= -std=gnu++2a -fno-rtti
 
-ASFLAGS	:=	$(ARCH)
-
 LIBDIRS	:= $(PORTLIBS) $(LIBNX) $(LIB_NANOVG) $(LIB_LRC) $(LIB_FMT)
 
 OUTPUT	:=	$(LIB)/$(TARGET)
