@@ -50,6 +50,7 @@ namespace eXUI
 
 #if defined(DEBUG_NXLINK)
         nxlinkSocket = nxlinkStdio();
+        Logger::debug("nxlink host is %s", inet_ntoa(__nxlink_host));
 #endif /* DEBUG_NXLINK */
 
         AppletOperationMode initOpMode = appletGetOperationMode();
