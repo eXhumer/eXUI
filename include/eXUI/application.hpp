@@ -2,8 +2,7 @@
 #define APPLICATION_HPP
 #include <nanovg/framework/CApplication.h>
 #include <nanovg/framework/CMemPool.h>
-#include <nanovg_dk.h>
-#include <optional>
+#include "ui_state.hpp"
 
 namespace eXUI
 {
@@ -17,8 +16,8 @@ namespace eXUI
 		~DkApplication();
 
 	private:
-		static constexpr uint32_t FramebufferWidth = 1280;
-		static constexpr uint32_t FramebufferHeight = 720;
+		uint32_t FramebufferWidth;
+		uint32_t FramebufferHeight;
 
 		dk::UniqueDevice m_device;
 		dk::UniqueQueue m_queue;
@@ -38,19 +37,21 @@ namespace eXUI
 		DkCmdList m_framebuffer_cmdlists[NumFramebuffers];
 
 		std::optional<nvg::DkRenderer> m_renderer;
-		NVGcontext* m_vg;
+		std::optional<DkUIState> m_uiState;
 
-		// float m_prevTime;
-		int m_standard_font;
-		PadState m_pad;
+#if defined(DEBUG_NXLINK)
+		int m_nxlinkSocket;
+#endif /* DEBUG_NXLINK */
 
 		void createFramebufferResources();
 		void recordStaticCommands();
 		void destroyFramebufferResources();
+		void onFramebufferDimensionChange();
 		void render(u64 ns);
 
 	protected:
-		bool onFrame(u64 ns);
+		bool onFrame(u64 ns) override;
+		void onOperationMode(AppletOperationMode opMode) override;
 	};
 } // namespace eXUI
 #endif /* APPLICATION_HPP */

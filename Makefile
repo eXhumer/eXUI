@@ -6,10 +6,11 @@ endif
 
 LIB_NANOVG	:=	libs/nanovg
 LIB_LRC		:=	libs/libretro-common
+LIB_FMT		:=	libs/fmt
 
 LIB			:=	lib
 TARGET		:=	libeXUI
-SOURCES		:=	source
+SOURCES		:=	source $(LIB_FMT)/src
 INCLUDES	:=	include
 
 ARCH	:=	-march=armv8-a -mtune=cortex-a57 -mtp=soft -fPIE
@@ -23,15 +24,16 @@ CXXFLAGS	:= -std=gnu++2a -fno-exceptions -fno-rtti
 
 ASFLAGS	:=	$(ARCH)
 
-LIBDIRS	:= $(PORTLIBS) $(LIBNX) $(LIB_NANOVG) $(LIB_LRC)
+LIBDIRS	:= $(PORTLIBS) $(LIBNX) $(LIB_NANOVG) $(LIB_LRC) $(LIB_FMT)
 
 OUTPUT	:=	$(LIB)/$(TARGET)
 LIB_OUTPUT	:=	$(OUTPUT).a
 
-CFILES		:=	$(foreach SOURCE,$(SOURCES),$(wildcard $(SOURCE)/*.c))
-CFILES		+=	$(LIB_LRC)/compat/compat_strl.c \
+CFILES		:=	$(foreach SOURCE,$(SOURCES),$(wildcard $(SOURCE)/*.c)) \
+				$(LIB_LRC)/compat/compat_strl.c \
 				$(LIB_LRC)/encodings/encoding_utf.c \
-				$(LIB_LRC)/encodings/features_cpu.c
+				$(LIB_LRC)/features/features_cpu.c
+CCFILES		:=	$(foreach SOURCE,$(SOURCES),$(wildcard $(SOURCE)/*.cc))
 CPPFILES	:=	$(foreach SOURCE,$(SOURCES),$(wildcard $(SOURCE)/*.cpp))
 
 ifeq ($(strip $(CPPFILES)),)
@@ -40,7 +42,7 @@ else
 	LD	:=	$(CXX)
 endif
 
-OFILES 	:=	$(CFILES:.c=.o) $(CPPFILES:.cpp=.o)
+OFILES 	:=	$(CFILES:.c=.o) $(CCFILES:.cc=.o) $(CPPFILES:.cpp=.o)
 DEPENDS	:=	$(OFILES:.o=.d)
 
 INCFLAGS	:=	$(foreach INCLUDE,$(INCLUDES),-I$(INCLUDE)) \
@@ -54,8 +56,11 @@ $(LIB_OUTPUT): $(LIB) $(OFILES)
 $(LIB):
 	[ -d $@ ] || mkdir -p $@
 
-%.o:	%.cpp
+%.o:	%.c
 	$(CC) -MMD -MP -MF $(@:%.o=%.d) $(CFLAGS) $(INCFLAGS) -c $< -o $@
+
+%.o:	%.cc
+	$(CXX) -MMD -MP -MF $(@:%.o=%.d) $(CFLAGS) $(INCFLAGS) $(CXXFLAGS) -c $< -o $@
 
 %.o:	%.cpp
 	$(CXX) -MMD -MP -MF $(@:%.o=%.d) $(CFLAGS) $(INCFLAGS) $(CXXFLAGS) -c $< -o $@

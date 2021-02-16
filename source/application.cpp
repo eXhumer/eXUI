@@ -1,4 +1,5 @@
 #include "eXUI/application.hpp"
+#include <cstring>
 
 static const SocketInitConfig socket_config =
 {
@@ -14,37 +15,12 @@ static const SocketInitConfig socket_config =
     .bsd_service_type = BsdServiceType_User,
 };
 
-extern "C" void userAppInit(void)
+float ieee_float(uint32_t f)
 {
-	Result res = romfsInit();
-	if (R_FAILED(res))
-		diagAbortWithResult(res);
-
-	if (R_FAILED(res = plInitialize(PlServiceType_User)))
-		diagAbortWithResult(res);
-
-	if (R_FAILED(res = socketInitialize(&socket_config)))
-		diagAbortWithResult(res);
-
-#if defined(DEBUG_NXLINK)
-	nxlink_sock = nxlinkStdioForDebug();
-	if (nxlink_sock > 0)
-		printf("Connected with NXLink Client!%s");
-	else
-		; // NXLink failed
-#endif /* DEBUG_NXLINK */
-}
-
-extern "C" void userAppExit(void)
-{
-#if defined(DEBUG_NXLINK)
-	if (nxlink_sock != -1)
-		close(nxlink_sock);
-#endif /* DEBUG_NXLINK */
-
-	socketExit();
-	plExit();
-	romfsExit();
+    static_assert(sizeof(float) == sizeof f, "`float` has a weird size.");
+    float ret;
+    std::memcpy(&ret, &f, sizeof(float));
+    return ret;
 }
 
 namespace eXUI
@@ -56,37 +32,37 @@ namespace eXUI
 
     DkApplication::DkApplication()
     {
-        // Create the deko3d device
-        this->m_device = dk::DeviceMaker{}.setCbDebug(OutputDkDebug).create();
+        Result res;
 
-        // Create the main queue
+        if (R_FAILED(res = romfsInit()))
+            diagAbortWithResult(res);
+
+        if (R_FAILED(res = socketInitialize(&socket_config)))
+            diagAbortWithResult(res);
+
+#if defined(DEBUG_NXLINK)
+        this->m_nxlinkSocket = nxlinkStdioForDebug();
+#endif /* DEBUG_NXLINK */
+
+        AppletOperationMode initOpMode = appletGetOperationMode();
+        FramebufferWidth = (initOpMode == AppletOperationMode_Console) ? 1080 : 720;
+        FramebufferHeight = (initOpMode == AppletOperationMode_Console) ? 1920 : 1280;
+
+        this->m_device = dk::DeviceMaker{}.setCbDebug(OutputDkDebug).create();
         this->m_queue = dk::QueueMaker{this->m_device}.setFlags(DkQueueFlags_Graphics).create();
 
-        // Create the memory pools
         this->m_pool_images.emplace(this->m_device, DkMemBlockFlags_GpuCached | DkMemBlockFlags_Image, 16*1024*1024);
         this->m_pool_code.emplace(this->m_device, DkMemBlockFlags_CpuUncached | DkMemBlockFlags_GpuCached | DkMemBlockFlags_Code, 128*1024);
         this->m_pool_data.emplace(this->m_device, DkMemBlockFlags_CpuUncached | DkMemBlockFlags_GpuCached, 1*1024*1024);
 
-        // Create the static command buffer and feed it freshly allocated memory
         this->m_cmdbuf = dk::CmdBufMaker{this->m_device}.create();
         CMemPool::Handle cmdmem = this->m_pool_data->allocate(StaticCmdSize);
         this->m_cmdbuf.addMemory(cmdmem.getMemBlock(), cmdmem.getOffset(), cmdmem.getSize());
 
-        // Create the framebuffer resources
         this->createFramebufferResources();
 
         this->m_renderer.emplace(FramebufferWidth, FramebufferHeight, this->m_device, this->m_queue, *this->m_pool_images, *this->m_pool_code, *this->m_pool_data);
-        this->m_vg = nvgCreateDk(&*this->m_renderer, NVG_ANTIALIAS | NVG_STENCIL_STROKES);
-
-        padConfigureInput(1, HidNpadStyleSet_NpadStandard);
-        padInitializeDefault(&this->m_pad);
-
-        Result rc;
-        PlFontData font;
-        if (R_FAILED(rc = plGetSharedFontByType(&font, PlSharedFontType_Standard)))
-            diagAbortWithResult(rc);
-
-        this->m_standard_font = nvgCreateFontMem(this->m_vg, "switch-standard", static_cast<u8*>(font.address), font.size, 0);
+        this->m_uiState.emplace(&*this->m_renderer);
     }
 
     DkApplication::~DkApplication()
@@ -94,11 +70,14 @@ namespace eXUI
         // Destroy the framebuffer resources. This should be done first.
         this->destroyFramebufferResources();
 
-        // Cleanup vg. This needs to be done first as it relies on the renderer.
-        nvgDeleteDk(this->m_vg);
-
         // Destroy the renderer
         this->m_renderer.reset();
+
+#if defined(DEBUG_NXLINK)
+        close(this->m_nxlinkSocket);
+#endif /* DEBUG_NXLINK */
+        socketExit();
+        romfsExit();
     }
 
     void DkApplication::createFramebufferResources()
@@ -180,7 +159,7 @@ namespace eXUI
         dk::BlendState blendState;
 
         // Configure the viewport and scissor
-        this->m_cmdbuf.setViewports(0, { { 0.0f, 0.0f, FramebufferWidth, FramebufferHeight, 0.0f, 1.0f } });
+        this->m_cmdbuf.setViewports(0, { { 0.0f, 0.0f, ieee_float(FramebufferWidth), ieee_float(FramebufferHeight), 0.0f, 1.0f } });
         this->m_cmdbuf.setScissors(0, { { 0, 0, FramebufferWidth, FramebufferHeight } });
 
         // Clear the color and depth buffers
@@ -195,12 +174,18 @@ namespace eXUI
         this->m_render_cmdlist = this->m_cmdbuf.finishList();
     }
 
+    void DkApplication::onFramebufferDimensionChange()
+    {
+        this->destroyFramebufferResources();
+        this->m_uiState.reset();
+        this->m_renderer.reset();
+        this->createFramebufferResources();
+        this->m_renderer.emplace(FramebufferWidth, FramebufferHeight, this->m_device, this->m_queue, *this->m_pool_images, *this->m_pool_code, *this->m_pool_data);
+        this->m_uiState.emplace(&*this->m_renderer);
+    }
+
     void DkApplication::render(u64 ns)
     {
-        // float time = ns / 1000000000.0;
-        // float dt = time - this->m_prevTime;
-        // this->m_prevTime = time;
-
         // Acquire a framebuffer from the swapchain (and wait for it to be available)
         int slot = this->m_queue.acquireImage(this->m_swapchain);
 
@@ -210,11 +195,7 @@ namespace eXUI
         // Run the main rendering command list
         this->m_queue.submitCommands(this->m_render_cmdlist);
 
-        nvgBeginFrame(this->m_vg, FramebufferWidth, FramebufferHeight, 1.0f);
-        {
-            // Render stuff!
-        }
-        nvgEndFrame(this->m_vg);
+        this->m_uiState->render(ns, FramebufferWidth, FramebufferHeight, 1.0f);
 
         // Now that we are done rendering, present it to the screen
         this->m_queue.presentImage(this->m_swapchain, slot);
@@ -222,14 +203,31 @@ namespace eXUI
 
     bool DkApplication::onFrame(u64 ns)
     {
-        padUpdate(&this->m_pad);
-        u64 kDown = padGetButtonsDown(&this->m_pad);
-        if (kDown & KEY_PLUS)
+        if (!this->m_uiState->onFrame(ns))
             return false;
 
-        // hidKeysHeld alternate not provided with libnx v4.0.0 +
-        // using kDown instead. Renders for a single frame when pressed
         this->render(ns);
         return true;
+    }
+
+    void DkApplication::onOperationMode(AppletOperationMode opMode)
+    {
+        switch (opMode)
+        {
+        case AppletOperationMode_Handheld:
+            FramebufferHeight = 1280;
+            FramebufferWidth = 720;
+            break;
+        
+        case AppletOperationMode_Console:
+            FramebufferHeight = 1920;
+            FramebufferWidth = 1080;
+            break;
+
+        default:
+            break;
+        }
+
+        this->onFramebufferDimensionChange();
     }
 } // namespace eXUI
