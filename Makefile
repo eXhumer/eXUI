@@ -20,7 +20,7 @@ DEFINES	:=	-D__SWITCH__
 CFLAGS	:=	-Wall -O3 -ffunction-sections \
 			$(ARCH) $(DEFINES)
 
-CXXFLAGS	:= -std=gnu++2a -fno-exceptions -fno-rtti
+CXXFLAGS	:= -std=gnu++2a -fno-rtti
 
 ASFLAGS	:=	$(ARCH)
 

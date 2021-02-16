@@ -1,4 +1,5 @@
 #include "eXUI/application.hpp"
+#include "eXUI/logger.hpp"
 #include <cstring>
 
 static const SocketInitConfig socket_config =
@@ -27,11 +28,13 @@ namespace eXUI
 {
     void OutputDkDebug(void* userData, const char* context, DkResult result, const char* message)
     {
-        printf("Context: %s\nResult: %d\nMessage: %s\n", context, result, message);
+        Logger::debug("Context: %s\nResult: %d\nMessage: %s\n", context, result, message);
     }
 
     DkApplication::DkApplication()
     {
+        Logger::setLogLevel(LogLevel::DEBUG);
+
         Result res;
 
         if (R_FAILED(res = romfsInit()))
