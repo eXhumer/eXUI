@@ -39,10 +39,6 @@ namespace eXUI
 		std::optional<nvg::DkRenderer> m_renderer;
 		std::optional<DkUIState> m_uiState;
 
-#if defined(DEBUG_NXLINK)
-		int m_nxlinkSocket;
-#endif /* DEBUG_NXLINK */
-
 		void createFramebufferResources();
 		void recordStaticCommands();
 		void destroyFramebufferResources();

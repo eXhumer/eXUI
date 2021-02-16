@@ -1,6 +1,7 @@
 #include "eXUI/application.hpp"
 #include "eXUI/logger.hpp"
 #include <cstring>
+#include <unistd.h>
 
 static const SocketInitConfig socket_config =
 {
@@ -15,6 +16,10 @@ static const SocketInitConfig socket_config =
     .num_bsd_sessions = 3,
     .bsd_service_type = BsdServiceType_User,
 };
+
+#if defined(DEBUG_NXLINK)
+static int nxlinkSocket = -1;
+#endif /* DEBUG_NXLINK */
 
 float ieee_float(uint32_t f)
 {
@@ -44,7 +49,7 @@ namespace eXUI
             diagAbortWithResult(res);
 
 #if defined(DEBUG_NXLINK)
-        this->m_nxlinkSocket = nxlinkStdioForDebug();
+        nxlinkSocket = nxlinkStdio();
 #endif /* DEBUG_NXLINK */
 
         AppletOperationMode initOpMode = appletGetOperationMode();
@@ -77,7 +82,11 @@ namespace eXUI
         this->m_renderer.reset();
 
 #if defined(DEBUG_NXLINK)
-        close(this->m_nxlinkSocket);
+        if (nxlinkSocket != -1)
+        {
+            close(nxlinkSocket);
+            nxlinkSocket = -1;
+        }
 #endif /* DEBUG_NXLINK */
         socketExit();
         romfsExit();

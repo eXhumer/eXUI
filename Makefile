@@ -16,6 +16,7 @@ INCLUDES	:=	include
 ARCH	:=	-march=armv8-a -mtune=cortex-a57 -mtp=soft -fPIE
 
 DEFINES	:=	-D__SWITCH__
+# DEFINES	+=	-DDEBUG_NXLINK
 
 CFLAGS	:=	-Wall -O3 -ffunction-sections \
 			$(ARCH) $(DEFINES)
