@@ -2,8 +2,8 @@
 
 namespace eXUI
 {
-    FontStash::FontStash(NVGcontext *nvgCtx) :
-    m_standard(0),
+    FontStash::FontStash(NVGcontext *nvgCtx)
+    : m_standard(0),
     m_korean(0),
     m_sharedSymbols(0)
     {
@@ -35,17 +35,22 @@ namespace eXUI
         plExit();
     }
 
-    DkUIState::DkUIState(nvg::DkRenderer *renderer)
+    DkUIState::DkUIState(nvg::DkRenderer *renderer, uint32_t w, uint32_t h)
     {
+        this->m_w = w;
+        this->m_h = h;
         this->m_renderer = renderer;
         this->m_vg = nvgCreateDk(this->m_renderer, NVG_ANTIALIAS | NVG_STENCIL_STROKES);
         this->m_fontStash = new FontStash(this->m_vg);
+        this->m_fps = new PerfGraph(RenderStyle::FPS, "Frame Timing");
         padConfigureInput(1, HidNpadStyleSet_NpadStandard);
         padInitializeDefault(&this->m_pad);
     }
 
     DkUIState::~DkUIState()
     {
+        delete this->m_fps;
+        this->m_fps = nullptr;
         delete this->m_fontStash;
         this->m_fontStash = nullptr;
         nvgDeleteDk(this->m_vg);
@@ -53,11 +58,18 @@ namespace eXUI
         this->m_renderer = nullptr;
     }
 
-    void DkUIState::render(u64 ns, float windowW, float windowH, float devicePixelRatio)
+    void DkUIState::render(u64 ns, float fbW, float fbH)
     {
-        nvgBeginFrame(this->m_vg, windowW, windowH, devicePixelRatio);
+        float time = ns / 1000000000.0;
+        float dt = time - this->m_prevTime;
+        this->m_prevTime = time;
+
+        this->m_fps->update(dt);
+
+        nvgBeginFrame(this->m_vg, fbW, fbH, 1.0f);
+        nvgScale(this->m_vg, fbW / this->m_w, fbH / this->m_h);
         {
-            // TODO: Render UI stuff!
+            this->m_fps->render(this->m_vg, 5, 5);
         }
         nvgEndFrame(this->m_vg);
     }
@@ -66,6 +78,9 @@ namespace eXUI
     {
         padUpdate(&this->m_pad);
         u64 kDown = padGetButtonsDown(&this->m_pad);
+
+        if (kDown & KEY_A)
+            this->m_fps->nextStyle();
 
         if (kDown & KEY_PLUS)
             return false;
