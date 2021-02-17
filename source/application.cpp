@@ -22,14 +22,6 @@ static const SocketInitConfig socket_config =
 static int nxlinkSocket = -1;
 #endif /* DEBUG_NXLINK */
 
-float ieee_float(uint32_t f)
-{
-    static_assert(sizeof(float) == sizeof f, "`float` has a weird size.");
-    float ret;
-    std::memcpy(&ret, &f, sizeof(float));
-    return ret;
-}
-
 namespace eXUI
 {
     void OutputDkDebug(void* userData, const char* context, DkResult result, const char* message)
@@ -138,7 +130,7 @@ namespace eXUI
         dk::ColorWriteState colorWriteState;
         dk::BlendState blendState;
 
-        this->m_cmdbuf.setViewports(0, { { 0.0f, 0.0f, ieee_float(FramebufferWidth), ieee_float(FramebufferHeight), 0.0f, 1.0f } });
+        this->m_cmdbuf.setViewports(0, { { 0.0f, 0.0f, static_cast<float>(FramebufferWidth), static_cast<float>(FramebufferHeight), 0.0f, 1.0f } });
         this->m_cmdbuf.setScissors(0, { { 0, 0, FramebufferWidth, FramebufferHeight } });
 
         this->m_cmdbuf.clearColor(0, DkColorMask_RGBA, 0.2f, 0.3f, 0.3f, 1.0f);
@@ -158,7 +150,7 @@ namespace eXUI
         this->m_renderer.reset();
         this->createFramebufferResources();
         this->m_renderer.emplace(FramebufferWidth, FramebufferHeight, this->m_device, this->m_queue, *this->m_pool_images, *this->m_pool_code, *this->m_pool_data);
-        this->m_uiState.emplace(&*this->m_renderer);
+        this->m_uiState.emplace(&*this->m_renderer, 1280, 720);
     }
 
     void DkApplication::render(u64 ns)
@@ -166,7 +158,7 @@ namespace eXUI
         int slot = this->m_queue.acquireImage(this->m_swapchain);
         this->m_queue.submitCommands(this->m_framebuffer_cmdlists[slot]);
         this->m_queue.submitCommands(this->m_render_cmdlist);
-        this->m_uiState->render(ns, FramebufferWidth, FramebufferHeight, 1.0f);
+        this->m_uiState->render(ns, FramebufferWidth, FramebufferHeight);
         this->m_queue.presentImage(this->m_swapchain, slot);
     }
 
@@ -184,14 +176,14 @@ namespace eXUI
         switch (opMode)
         {
         case AppletOperationMode_Console:
-            FramebufferHeight = 1920;
-            FramebufferWidth = 1080;
+            FramebufferHeight = 1080;
+            FramebufferWidth = 1920;
             break;
 
         case AppletOperationMode_Handheld:
         default:
-            FramebufferHeight = 1280;
-            FramebufferWidth = 720;
+            FramebufferHeight = 720;
+            FramebufferWidth = 1280;
             break;
         }
 
