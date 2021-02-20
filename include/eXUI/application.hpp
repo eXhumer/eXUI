@@ -16,8 +16,10 @@ namespace eXUI
 		~DkApplication();
 
 	private:
-		uint32_t FramebufferWidth;
-		uint32_t FramebufferHeight;
+		const uint32_t FramebufferWidth = 1280;
+		const uint32_t FramebufferHeight = 720;
+		uint32_t OutputWidth;
+		uint32_t OutputHeight;
 
 		dk::UniqueDevice m_device;
 		dk::UniqueQueue m_queue;

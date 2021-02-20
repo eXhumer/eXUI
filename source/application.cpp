@@ -58,6 +58,10 @@ namespace eXUI
         this->m_cmdbuf = dk::CmdBufMaker{this->m_device}.create();
         CMemPool::Handle cmdmem = this->m_pool_data->allocate(StaticCmdSize);
         this->m_cmdbuf.addMemory(cmdmem.getMemBlock(), cmdmem.getOffset(), cmdmem.getSize());
+
+        this->createFramebufferResources();
+        this->m_renderer.emplace(FramebufferWidth, FramebufferHeight, this->m_device, this->m_queue, *this->m_pool_images, *this->m_pool_code, *this->m_pool_data);
+        this->m_uiState.emplace(&*this->m_renderer, FramebufferWidth, FramebufferHeight);
     }
 
     DkApplication::~DkApplication()
@@ -143,22 +147,12 @@ namespace eXUI
         this->m_render_cmdlist = this->m_cmdbuf.finishList();
     }
 
-    void DkApplication::onFramebufferDimensionChange()
-    {
-        this->destroyFramebufferResources();
-        this->m_uiState.reset();
-        this->m_renderer.reset();
-        this->createFramebufferResources();
-        this->m_renderer.emplace(FramebufferWidth, FramebufferHeight, this->m_device, this->m_queue, *this->m_pool_images, *this->m_pool_code, *this->m_pool_data);
-        this->m_uiState.emplace(&*this->m_renderer, 1280, 720);
-    }
-
     void DkApplication::render(u64 ns)
     {
         int slot = this->m_queue.acquireImage(this->m_swapchain);
         this->m_queue.submitCommands(this->m_framebuffer_cmdlists[slot]);
         this->m_queue.submitCommands(this->m_render_cmdlist);
-        this->m_uiState->render(ns, FramebufferWidth, FramebufferHeight);
+        this->m_uiState->render(ns, OutputWidth, OutputHeight);
         this->m_queue.presentImage(this->m_swapchain, slot);
     }
 
@@ -176,17 +170,15 @@ namespace eXUI
         switch (opMode)
         {
         case AppletOperationMode_Console:
-            FramebufferHeight = 1080;
-            FramebufferWidth = 1920;
+            OutputHeight = 1080;
+            OutputWidth = 1920;
             break;
 
         case AppletOperationMode_Handheld:
         default:
-            FramebufferHeight = 720;
-            FramebufferWidth = 1280;
+            OutputHeight = 720;
+            OutputWidth = 1280;
             break;
         }
-
-        this->onFramebufferDimensionChange();
     }
 } // namespace eXUI
